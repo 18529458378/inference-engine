@@ -169,6 +169,139 @@ code_enhancer:
     coverage: 80
 ```
 
+## 命令行接口 (CLI)
+
+安装后可直接使用 `inference-engine` 命令：
+
+```bash
+# 推理增强
+inference-engine reasoning cot "复杂问题"
+inference-engine reasoning reflection "问题" --iterations 3
+inference-engine reasoning tot "问题" --breadth 3 --depth 3
+inference-engine reasoning plan "复杂任务"
+inference-engine reasoning voting "问题" --paths 5 --method weighted
+
+# 代码增强
+inference-engine code review path/to/code.py
+inference-engine code refactor path/to/code.py --target clean_code
+inference-engine code test path/to/module.py --framework pytest
+inference-engine code complexity path/to/code.py
+inference-engine code optimize path/to/code.py
+inference-engine code docs path/to/code.py --style google
+
+# 算法
+inference-engine algo bayes 0.1 --likelihood 0.9
+```
+
+或直接运行：
+```bash
+python -m src.cli reasoning cot "问题"
+```
+
+## 新增功能
+
+### ReAct 推理 (Reasoning + Acting)
+结合推理和行动，先思考再执行工具，观察结果后继续推理：
+
+```python
+tools = {
+    "calculate": {"description": "数学计算", "function": eval},
+    "search": {"description": "搜索", "function": search_func},
+}
+result = client.reasoning.react.reason("问题", tools=tools, verbose=True)
+print(result.steps)  # 思考-行动-观察步骤
+print(result.tools_used)
+```
+
+### 代码解释
+自动解释代码功能、逻辑、算法、设计意图：
+
+```python
+explanation = client.code.explain("path/to/code.py", level="intermediate")
+print(explanation.algorithm_explanation)
+print(explanation.key_components)
+```
+
+### 代码转换
+在不同编程语言之间转换代码（Python/JavaScript/Java/Go/Rust等）：
+
+```python
+result = client.code.convert("script.py", target_language="javascript")
+print(result.converted_code)
+print(result.confidence)
+```
+
+## 测试
+
+```bash
+# 运行全部测试
+make test
+# 或
+pytest tests/ -v
+
+# 覆盖率报告
+make coverage
+```
+
+当前测试覆盖：MCTS、HTN Planner、贝叶斯推理、投票聚合等算法层（40个测试用例）。
+
+## 开发
+
+```bash
+# 安装开发依赖
+make install
+
+# 代码格式化
+make format
+
+# 代码检查
+make lint
+
+# 运行演示
+make demo-reasoning
+make demo-code
+make demo-mcts
+```
+
+## 项目结构
+
+```
+inference-engine/
+├── src/
+│   ├── reasoning/          # 推理增强模块
+│   │   ├── chain_of_thought.py
+│   │   ├── tree_of_thoughts.py
+│   │   ├── self_reflection.py
+│   │   ├── plan_execute.py
+│   │   ├── multi_path.py
+│   │   ├── confidence.py
+│   │   └── react.py        # ReAct推理+行动
+│   ├── code_enhancer/      # 代码增强模块
+│   │   ├── reviewer.py
+│   │   ├── refactorer.py
+│   │   ├── tester.py
+│   │   ├── optimizer.py
+│   │   ├── complexity.py
+│   │   ├── documenter.py
+│   │   ├── explainer.py    # 代码解释
+│   │   └── converter.py    # 代码转换
+│   ├── algorithms/         # 算法层
+│   │   ├── mcts.py
+│   │   ├── planner.py
+│   │   ├── bayesian.py
+│   │   └── voting.py
+│   ├── llm/                # LLM接口
+│   ├── sdk/                # 统一SDK
+│   ├── cli.py              # 命令行接口
+│   └── config.py
+├── tests/                  # 单元测试
+├── examples/               # 示例脚本
+├── config.yaml
+├── pyproject.toml
+├── Makefile
+└── README.md
+```
+
 ## License
 
 MIT

@@ -5,6 +5,7 @@ from .self_reflection import SelfReflection, ReflectionResult
 from .plan_execute import PlanAndExecute, PlanResult
 from .multi_path import MultiPathVoting, VotingResult
 from .confidence import ConfidenceEstimator
+from .react import ReActReasoner, ReActResult
 
 __all__ = [
     "ChainOfThought", "CoTResult",
@@ -13,4 +14,5 @@ __all__ = [
     "PlanAndExecute", "PlanResult",
     "MultiPathVoting", "VotingResult",
     "ConfidenceEstimator",
+    "ReActReasoner", "ReActResult",
 ]

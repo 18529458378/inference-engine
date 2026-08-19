@@ -9,11 +9,13 @@ from ..config import Config
 from ..llm.client import LLMClient
 from ..reasoning import (
     ChainOfThought, TreeOfThoughts, SelfReflection,
-    PlanAndExecute, MultiPathVoting, ConfidenceEstimator
+    PlanAndExecute, MultiPathVoting, ConfidenceEstimator,
+    ReActReasoner
 )
 from ..code_enhancer import (
     CodeReviewer, CodeRefactorer, TestGenerator,
-    CodeOptimizer, ComplexityAnalyzer, DocumentGenerator
+    CodeOptimizer, ComplexityAnalyzer, DocumentGenerator,
+    CodeExplainer, CodeConverter
 )
 from ..algorithms import MCTS, HTNPlanner, BayesianInference, VotingEngine
 
@@ -89,6 +91,7 @@ class _ReasoningModule:
         self._plan = None
         self._voting = None
         self._confidence = None
+        self._react = None
 
     @property
     def chain_of_thought(self) -> ChainOfThought:
@@ -126,6 +129,12 @@ class _ReasoningModule:
             self._confidence = ConfidenceEstimator(self.llm, self.config)
         return self._confidence
 
+    @property
+    def react(self) -> ReActReasoner:
+        if self._react is None:
+            self._react = ReActReasoner(self.llm, self.config)
+        return self._react
+
 
 class _CodeEnhancerModule:
     """代码增强模块"""
@@ -140,6 +149,8 @@ class _CodeEnhancerModule:
         self._optimizer = None
         self._complexity = None
         self._documenter = None
+        self._explainer = None
+        self._converter = None
 
     @property
     def reviewer(self) -> CodeReviewer:
@@ -204,6 +215,26 @@ class _CodeEnhancerModule:
     def generate_docs(self, filepath: str, **kwargs):
         """生成代码文档"""
         return self.documenter.generate_for_file(filepath, **kwargs)
+
+    @property
+    def explainer(self) -> CodeExplainer:
+        if self._explainer is None:
+            self._explainer = CodeExplainer(self.llm, self.config)
+        return self._explainer
+
+    def explain(self, filepath: str, **kwargs):
+        """解释代码"""
+        return self.explainer.explain_file(filepath, **kwargs)
+
+    @property
+    def converter(self) -> CodeConverter:
+        if self._converter is None:
+            self._converter = CodeConverter(self.llm, self.config)
+        return self._converter
+
+    def convert(self, filepath: str, target_language: str, **kwargs):
+        """转换代码语言"""
+        return self.converter.convert_file(filepath, target_language, **kwargs)
 
 
 class _AlgorithmsModule:

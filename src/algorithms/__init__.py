@@ -1,12 +1,29 @@
 """算法层"""
 from .mcts import MCTS, MCTSNode
-from .planner import HTNPlanner, Planner
-from .bayesian import BayesianInference, BayesianUpdater
-from .voting import VotingEngine, MajorityVote, WeightedVote, BayesianVote
+from .planner import (
+    HTNPlanner, Planner,
+    Task, DecompositionMethod, PlanStep, Plan,
+)
+from .bayesian import (
+    BayesianInference, BayesianUpdater, BayesianState,
+    bayesian_average, calibrate_probability,
+)
+from .voting import (
+    VotingEngine, Vote, VotingResult,
+    MajorityVote, WeightedVote, BayesianVote,
+    rank_aggregation,
+)
 
 __all__ = [
+    # MCTS
     "MCTS", "MCTSNode",
-    "HTNPlanner", "Planner",
-    "BayesianInference", "BayesianUpdater",
-    "VotingEngine", "MajorityVote", "WeightedVote", "BayesianVote",
+    # Planner
+    "HTNPlanner", "Planner", "Task", "DecompositionMethod", "PlanStep", "Plan",
+    # Bayesian
+    "BayesianInference", "BayesianUpdater", "BayesianState",
+    "bayesian_average", "calibrate_probability",
+    # Voting
+    "VotingEngine", "Vote", "VotingResult",
+    "MajorityVote", "WeightedVote", "BayesianVote",
+    "rank_aggregation",
 ]
