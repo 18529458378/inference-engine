@@ -1,0 +1,100 @@
+# Inference Engine 配置文件
+
+llm:
+  provider: deepseek  # deepseek | openai
+  model: deepseek-reasoner  # 推理模型: deepseek-reasoner | deepseek-chat
+  base_url: https://api.deepseek.com
+  api_key: ${DEEPSEEK_API_KEY}
+  temperature: 0.7
+  max_tokens: 4096
+  top_p: 0.95
+  frequency_penalty: 0.0
+  presence_penalty: 0.0
+  timeout: 120
+  max_retries: 3
+
+reasoning:
+  chain_of_thought:
+    max_steps: 10
+    step_separator: "---"
+    verbose: true
+
+  tree_of_thoughts:
+    breadth: 3  # 每节点分支数
+    depth: 3    # 搜索深度
+    evaluation_metric: "confidence"  # confidence | correctness | completeness
+    pruning_threshold: 0.3
+
+  self_reflection:
+    max_iterations: 3
+    improvement_threshold: 0.1  # 最小改进幅度
+    critique_dimensions: [correctness, completeness, clarity, conciseness]
+
+  plan_and_execute:
+    max_subtasks: 10
+    replan_on_failure: true
+    max_replans: 3
+
+  multi_path_voting:
+    num_paths: 5
+    voting_method: "majority"  # majority | weighted | bayesian
+    temperature_variation: 0.3  # 不同路径的温度差异
+
+  confidence:
+    calibration_method: "bayesian"  # bayesian | ensemble | self_evaluation
+    num_bootstrap: 10
+
+code_enhancer:
+  review:
+    categories: [security, performance, style, bug, maintainability]
+    severity_levels: [critical, high, medium, low, info]
+    output_format: "json"  # json | markdown | sarif
+
+  refactor:
+    targets: [clean_code, design_pattern, performance, readability]
+    preserve_behavior: true
+    incremental: true
+
+  test_generation:
+    framework: pytest  # pytest | unittest
+    coverage_target: 80
+    include_edge_cases: true
+    include_error_handling: true
+    test_style: "given_when_then"  # given_when_then | arrange_act_assert
+
+  documentation:
+    style: "google"  # google | numpy | sphinx | javadoc
+    include_examples: true
+    include_type_hints: true
+
+  optimization:
+    focus: [time_complexity, space_complexity, io, concurrency]
+    profiling_hints: true
+
+  complexity:
+    metrics: [cyclomatic, halstead, maintainability, cognitive]
+    thresholds:
+      cyclomatic: 10
+      maintainability: 50
+
+algorithms:
+  mcts:
+    exploration_constant: 1.414  # sqrt(2)
+    max_iterations: 1000
+    max_depth: 20
+    rollout_policy: "random"  # random | heuristic | llm
+
+  bayesian:
+    prior_type: "uniform"  # uniform | beta | gaussian
+    update_method: "exact"  # exact | variational | mcmc
+
+  planner:
+    method: "htn"  # htn | pop | graphplan
+    max_depth: 10
+    heuristic: "cost_so_far"
+
+logging:
+  level: INFO
+  file: ./inference.log
+  max_size: 10MB
+  backup_count: 5
