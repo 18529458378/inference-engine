@@ -168,9 +168,17 @@ def detect_best_interface(timeout: float = 0.5) -> Tuple[str, Optional[dict]]:
     - ('cli', {'path': path}) 当在 PATH 中发现 minimax-cli
     - ('tcp', {'host':host,'port':port}) 当本地 127.0.0.1:45123 可连通
     - ('file', {'request_dir': dir}) 兜底
+
+    优先级：env MINIMAX_REQUEST_DIR（强制） -> CLI -> TCP -> 本地目录 -> cwd/minimax_requests
     """
+    # 0) 环境变量覆盖（测试/显式指定）
+    env_req = os.environ.get('MINIMAX_REQUEST_DIR')
+    if env_req:
+        os.makedirs(env_req, exist_ok=True)
+        return ('file', {'request_dir': env_req})
+
     # 1) 检查 CLI
-    cli_path = shutil.which('minimax-cli')
+    cli_path = shutil.which('minimax-cli') or shutil.which('minimax')
     if cli_path:
         return ('cli', {'path': cli_path})
 
@@ -195,7 +203,8 @@ def detect_best_interface(timeout: float = 0.5) -> Tuple[str, Optional[dict]]:
     # windows appdata
     appdata = os.environ.get('APPDATA') or os.environ.get('LOCALAPPDATA')
     if appdata:
-        candidates.append(os.path.join(appdata, 'Minimax'))
+        candidates.append(os.path.join(appdata, 'MiniMax Agent'))
+        candidates.append(os.path.join(appdata, 'MiniMax Code'))
         candidates.append(os.path.join(appdata, '.minimax'))
 
     for c in candidates:
