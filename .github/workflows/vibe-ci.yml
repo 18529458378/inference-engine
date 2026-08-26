@@ -5,6 +5,7 @@ on:
     branches: ['18529458378-feature/vibe-chinese','feature/vibe-chinese']
   pull_request:
     branches: ['18529458378-feature/vibe-chinese','feature/vibe-chinese']
+  workflow_dispatch:
 
 jobs:
   self-hosted:
@@ -74,6 +75,33 @@ jobs:
           pip install black flake8 || true
           black --version || true
           flake8 --version || true
+
+  cloud-faiss:
+    name: Cloud FAISS build (on-demand)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies for FAISS build
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt || true
+          fi
+          pip install -U sentence-transformers || true
+          pip install faiss-cpu || true
+
+      - name: Build FAISS index (cloud)
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python -u tools/build_faiss_index.py --source "vibe/extensions/minimax_browser_adapter/extracted/app_asar_text" --out "deepseek_index" --model "sentence-transformers/all-MiniLM-L6-v2"
 
   integration:
     name: Integration tests (self-hosted only)
