@@ -1,0 +1,159 @@
+﻿name: Vibe CI
+
+on:
+  push:
+    branches: ['18529458378-feature/vibe-chinese','feature/vibe-chinese']
+  pull_request:
+    branches: ['18529458378-feature/vibe-chinese','feature/vibe-chinese']
+  workflow_dispatch:
+    inputs:
+      run_cloud_faiss:
+        description: '是否在云端构建 FAISS 索引 (yes/no)'
+        required: false
+        default: 'no'
+      model_name:
+        description: 'HF 模型名或路径（用于 embedding）'
+        required: false
+        default: 'sentence-transformers/all-MiniLM-L6-v2'
+      run_integration:
+        description: '是否运行集成测试 (yes/no)'
+        required: false
+        default: 'no'
+      toknife_repo:
+        description: '可选 TOKNIFE 仓库 URL'
+        required: false
+        default: ''
+
+jobs:
+  self-hosted:
+    name: Self-hosted CI (minimal)
+    runs-on: [self-hosted, linux]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Run tests if pytest exists
+        shell: bash
+        run: |
+          if command -v pytest >/dev/null 2>&1; then
+            echo "pytest found, running tests..."
+            pytest -q || true
+          else
+            echo "pytest not found on runner — 跳过测试。请在 self-hosted runner 上预装 pytest 或在本地运行 'python -m pytest'."
+          fi
+
+      - name: Lint note
+        run: |
+          echo "请在 runner 上预装格式化/静态检查工具（如 black/flake8/mypy），或在本地运行相关命令。"
+
+  hosted:
+    name: Hosted CI (ubuntu-latest, installs deps)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install pytest
+          fi
+          # 安装 claw-compactor 用于 adapters / hermes
+          pip install claw-compactor || true
+          # 可选：如果定义了 TOKNIFE_REPO，则克隆并设置 TOKNIFE_PY_PATH 环境变量供后续步骤使用
+      - name: Optionally clone toknife (if TOKNIFE_REPO set)
+        if: ${{ env.TOKNIFE_REPO != '' }}
+        run: |
+          echo "TOKNIFE_REPO is set: $TOKNIFE_REPO"
+          git clone "$TOKNIFE_REPO" toknife || true
+          # 如果仓库包含 scripts 目录，导出路径以便 adapters 使用
+          if [ -d toknife/scripts ]; then
+            echo "TOKNIFE_PY_PATH=$(pwd)/toknife/scripts" >> $GITHUB_ENV
+          fi
+
+      - name: Run tests
+        run: |
+          python -m pytest -q
+
+      - name: Lint
+        run: |
+          pip install black flake8 || true
+          black --version || true
+          flake8 --version || true
+
+  cloud-faiss:
+    name: Cloud FAISS build (on-demand)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_cloud_faiss == 'yes'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies for FAISS build
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt || true
+          fi
+          pip install -U sentence-transformers || true
+          pip install faiss-cpu || true
+
+      - name: Build FAISS index (cloud)
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          MODEL_NAME="${{ github.event.inputs.model_name }}"
+          echo "使用模型：$MODEL_NAME"
+          python -u tools/build_faiss_index.py --source "vibe/extensions/minimax_browser_adapter/extracted/app_asar_text" --out "deepseek_index" --model "$MODEL_NAME"
+
+  integration:
+    name: Integration tests (self-hosted only)
+    runs-on: [self-hosted, linux]
+    environment: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install pytest
+        run: |
+          pip install pytest
+          pip install claw-compactor || true
+
+      - name: Start local minimax stub (background)
+        shell: bash
+        run: |
+          # MINIMAX_REQUEST_DIR can be configured on the runner; default to workspace/minimax_requests
+          export MINIMAX_REQUEST_DIR=${{ github.workspace }}/minimax_requests
+          mkdir -p "$MINIMAX_REQUEST_DIR"
+          nohup python vibe/extensions/minimax_browser_adapter/minimax_stub.py > minimax_stub.log 2>&1 &
+          echo "stub started"
+
+      - name: Run integration tests
+        shell: bash
+        run: |
+          export RUN_MINIMAX_INTEGRATION=1
+          export MINIMAX_REQUEST_DIR=${{ github.workspace }}/minimax_requests
+          python -m pytest tests/integration -q
+
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_integration == 'yes')
