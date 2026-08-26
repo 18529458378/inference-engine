@@ -1,4 +1,4 @@
-"""Minimax Browser Adapter — 骨架实现与多种运输示例
+﻿"""Minimax Browser Adapter — 骨架实现与多种运输示例
 
 说明：此模块提供与 Minimax 内置 Browser 能力交互的抽象类与示例实现。
 实现包含：
@@ -6,14 +6,16 @@
 - TCPMinimaxAdapter: 简单 TCP JSON RPC（本地 IPC 示例，需 Minimax 暴露对应端口）
 - FileExchangeMinimaxAdapter: 通过临时文件请求/响应交换（兜底方案）
 
+模块新增：自动探测最优接口工厂 get_best_adapter() —— 优先 CLI，其次 TCP，最后文件交换。
 生产环境请根据 Minimax 提供的真实接口实现对应底层调用并做好凭证/会话管理。
 """
-from typing import Dict, Any
+from typing import Dict, Any, Optional, Tuple
 import subprocess
 import json
 import socket
 import time
 import os
+import shutil
 
 
 class MinimaxBrowserAdapter:
@@ -57,6 +59,7 @@ class CLIProxyMinimaxAdapter(MinimaxBrowserAdapter):
         except FileNotFoundError:
             raise RuntimeError('minimax-cli not found; please install or configure CLI path')
         except subprocess.CalledProcessError as e:
+            # 尽量提供 stdout/stderr 以便调试
             raise RuntimeError(f'CLI call failed: {e.stdout}\n{e.stderr}')
 
     def inspect(self) -> Dict[str, Any]:
@@ -157,3 +160,61 @@ class FileExchangeMinimaxAdapter(MinimaxBrowserAdapter):
 
     def action(self, action_name: str, input: Dict[str, Any]) -> Dict[str, Any]:
         return self._exchange({"op": "action", "name": action_name, "input": input})
+
+
+# 自动探测最优适配器工厂
+def detect_best_interface(timeout: float = 0.5) -> Tuple[str, Optional[dict]]:
+    """检测环境并返回 (mode, params) 之一：
+    - ('cli', {'path': path}) 当在 PATH 中发现 minimax-cli
+    - ('tcp', {'host':host,'port':port}) 当本地 127.0.0.1:45123 可连通
+    - ('file', {'request_dir': dir}) 兜底
+    """
+    # 1) 检查 CLI
+    cli_path = shutil.which('minimax-cli')
+    if cli_path:
+        return ('cli', {'path': cli_path})
+
+    # 2) 检查常见本地 TCP 端口（示例端口 45123）
+    s = socket.socket()
+    s.settimeout(timeout)
+    try:
+        s.connect(('127.0.0.1', 45123))
+        s.close()
+        return ('tcp', {'host': '127.0.0.1', 'port': 45123})
+    except Exception:
+        try:
+            s.close()
+        except Exception:
+            pass
+
+    # 3) 尝试发现 Minimax 本地目录（如 ~/.minimax 或 %APPDATA%/.minimax）来决定默认请求目录
+    candidates = []
+    home = os.path.expanduser('~')
+    candidates.append(os.path.join(home, '.minimax'))
+    candidates.append(os.path.join(home, '.agent-browser'))
+    # windows appdata
+    appdata = os.environ.get('APPDATA') or os.environ.get('LOCALAPPDATA')
+    if appdata:
+        candidates.append(os.path.join(appdata, 'Minimax'))
+        candidates.append(os.path.join(appdata, '.minimax'))
+
+    for c in candidates:
+        if os.path.isdir(c):
+            # 以该目录为共享请求目录的父目录
+            req_dir = os.path.join(c, 'vibe_minimax_exchange')
+            os.makedirs(req_dir, exist_ok=True)
+            return ('file', {'request_dir': req_dir})
+
+    # 最后兜底到工作目录下的 minimax_requests
+    return ('file', {'request_dir': os.path.join(os.getcwd(), 'minimax_requests')})
+
+
+def get_best_adapter() -> MinimaxBrowserAdapter:
+    """工厂：根据 detect_best_interface 返回已实例化适配器。"""
+    mode, params = detect_best_interface()
+    if mode == 'cli':
+        return CLIProxyMinimaxAdapter(cli_path=params.get('path'))
+    if mode == 'tcp':
+        return TCPMinimaxAdapter(host=params.get('host', '127.0.0.1'), port=params.get('port', 45123))
+    # file
+    return FileExchangeMinimaxAdapter(request_dir=params.get('request_dir'))

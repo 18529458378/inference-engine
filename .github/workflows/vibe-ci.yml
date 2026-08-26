@@ -1,16 +1,15 @@
-name: Vibe CI
+﻿name: Vibe CI
 
 on:
   push:
-    branches: ['18529458378-feature/vibe-chinese']
+    branches: ['18529458378-feature/vibe-chinese','feature/vibe-chinese']
   pull_request:
-    branches: ['18529458378-feature/vibe-chinese']
+    branches: ['18529458378-feature/vibe-chinese','feature/vibe-chinese']
 
 jobs:
-  build:
-    # 使用 self-hosted runner 以支持本地/离线执行（用户可在本机/自托管 runner 上运行）
+  self-hosted:
+    name: Self-hosted CI (minimal)
     runs-on: [self-hosted, linux]
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,9 +26,39 @@ jobs:
             echo "pytest found, running tests..."
             pytest -q || true
           else
-            echo "pytest not found on runner — 跳过测试。请在 self-hosted runner 上安装 pytest 或在本地运行 'python -m pytest'。"
+            echo "pytest not found on runner — 跳过测试。请在 self-hosted runner 上预装 pytest 或在本地运行 'python -m pytest'."
           fi
 
       - name: Lint note
         run: |
           echo "请在 runner 上预装格式化/静态检查工具（如 black/flake8/mypy），或在本地运行相关命令。"
+
+  hosted:
+    name: Hosted CI (ubuntu-latest, installs deps)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install pytest
+          fi
+
+      - name: Run tests
+        run: |
+          python -m pytest -q
+
+      - name: Lint
+        run: |
+          pip install black flake8 || true
+          black --version || true
+          flake8 --version || true
