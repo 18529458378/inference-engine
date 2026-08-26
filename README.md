@@ -247,6 +247,34 @@ make coverage
 
 ## 开发
 
+### 中文 Vibe 部署与本地/CLI 集成
+
+本项目新增 `vibe/` 目录以支持“中文 Vibe”端到端部署（包含算法、引擎、内核与扩展点）。本地启动与 MCP/CLI 集成高层步骤：
+
+1. 在本地准备 self-hosted runner 或 Python 环境（推荐）。
+2. 在仓库根目录运行（示例）：
+
+```bash
+# 安装测试依赖（若需要）
+python -m pip install -U pip pytest
+
+# 运行示例算法测试
+python -m pytest tests/test_example_algorithm.py -q
+```
+
+3. 使用 CLI 或 MCP 下发任务到 kernel：
+
+```bash
+# 本地（示例）
+python -m vibe.algorithm.example_algorithm
+
+# 使用 MCP/CLI（示例）
+# 假设已安装并配置本仓库的 CLI：
+# inference-engine vibe run --skill chinese-vibe --input "示例文本"
+```
+
+> 注意：CI workflow 配置为在 self-hosted runner 上运行（见 .github/workflows/vibe-ci.yml），以便支持离线或受控环境运行。若需在 GitHub 托管 runner 上运行，请在 workflow 中修改 runs-on 并确保安装所需依赖。
+
 ```bash
 # 安装开发依赖
 make install
