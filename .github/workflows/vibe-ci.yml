@@ -6,6 +6,23 @@ on:
   pull_request:
     branches: ['18529458378-feature/vibe-chinese','feature/vibe-chinese']
   workflow_dispatch:
+    inputs:
+      run_cloud_faiss:
+        description: '是否在云端构建 FAISS 索引 (yes/no)'
+        required: false
+        default: 'no'
+      model_name:
+        description: 'HF 模型名或路径（用于 embedding）'
+        required: false
+        default: 'sentence-transformers/all-MiniLM-L6-v2'
+      run_integration:
+        description: '是否运行集成测试 (yes/no)'
+        required: false
+        default: 'no'
+      toknife_repo:
+        description: '可选 TOKNIFE 仓库 URL'
+        required: false
+        default: ''
 
 jobs:
   self-hosted:
@@ -79,7 +96,7 @@ jobs:
   cloud-faiss:
     name: Cloud FAISS build (on-demand)
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_cloud_faiss == 'yes'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -101,7 +118,9 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python -u tools/build_faiss_index.py --source "vibe/extensions/minimax_browser_adapter/extracted/app_asar_text" --out "deepseek_index" --model "sentence-transformers/all-MiniLM-L6-v2"
+          MODEL_NAME="${{ github.event.inputs.model_name }}"
+          echo "使用模型：$MODEL_NAME"
+          python -u tools/build_faiss_index.py --source "vibe/extensions/minimax_browser_adapter/extracted/app_asar_text" --out "deepseek_index" --model "$MODEL_NAME"
 
   integration:
     name: Integration tests (self-hosted only)
@@ -137,4 +156,4 @@ jobs:
           export MINIMAX_REQUEST_DIR=${{ github.workspace }}/minimax_requests
           python -m pytest tests/integration -q
 
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_integration == 'yes')
