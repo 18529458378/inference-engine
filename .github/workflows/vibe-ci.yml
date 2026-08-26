@@ -54,6 +54,16 @@ jobs:
           fi
           # 安装 claw-compactor 用于 adapters / hermes
           pip install claw-compactor || true
+          # 可选：如果定义了 TOKNIFE_REPO，则克隆并设置 TOKNIFE_PY_PATH 环境变量供后续步骤使用
+      - name: Optionally clone toknife (if TOKNIFE_REPO set)
+        if: ${{ env.TOKNIFE_REPO != '' }}
+        run: |
+          echo "TOKNIFE_REPO is set: $TOKNIFE_REPO"
+          git clone "$TOKNIFE_REPO" toknife || true
+          # 如果仓库包含 scripts 目录，导出路径以便 adapters 使用
+          if [ -d toknife/scripts ]; then
+            echo "TOKNIFE_PY_PATH=$(pwd)/toknife/scripts" >> $GITHUB_ENV
+          fi
 
       - name: Run tests
         run: |
