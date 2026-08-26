@@ -14,7 +14,14 @@ class ToolCallError(Exception):
 class SuperCogOrchestrator:
     def __init__(self, tools: Optional[Dict[str, Callable]] = None):
         # tools: name -> callable(payload:dict) -> dict
-        self.tools = tools or {}
+        if tools is None:
+            try:
+                from vibe.adapters.register_adapters import get_default_tools
+                self.tools = get_default_tools()
+            except Exception:
+                self.tools = {}
+        else:
+            self.tools = tools
         # role -> agent_name mapping (agent_name corresponds to module/agent scaffold)
         self.role_map = {
             'code': 'pi_agent',
