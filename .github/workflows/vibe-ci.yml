@@ -62,3 +62,38 @@ jobs:
           pip install black flake8 || true
           black --version || true
           flake8 --version || true
+
+  integration:
+    name: Integration tests (self-hosted only)
+    runs-on: [self-hosted, linux]
+    environment: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install pytest
+        run: |
+          pip install pytest
+
+      - name: Start local minimax stub (background)
+        shell: bash
+        run: |
+          # MINIMAX_REQUEST_DIR can be configured on the runner; default to workspace/minimax_requests
+          export MINIMAX_REQUEST_DIR=${{ github.workspace }}/minimax_requests
+          mkdir -p "$MINIMAX_REQUEST_DIR"
+          nohup python vibe/extensions/minimax_browser_adapter/minimax_stub.py > minimax_stub.log 2>&1 &
+          echo "stub started"
+
+      - name: Run integration tests
+        shell: bash
+        run: |
+          export RUN_MINIMAX_INTEGRATION=1
+          export MINIMAX_REQUEST_DIR=${{ github.workspace }}/minimax_requests
+          python -m pytest tests/integration -q
+
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'

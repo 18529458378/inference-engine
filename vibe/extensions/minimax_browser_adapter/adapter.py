@@ -162,16 +162,64 @@ class FileExchangeMinimaxAdapter(MinimaxBrowserAdapter):
         return self._exchange({"op": "action", "name": action_name, "input": input})
 
 
-# 自动探测最优适配器工厂
+# WebSocket adapter（示例）
+try:
+    import websocket  # type: ignore
+except Exception:
+    websocket = None
+
+
+class WSMinimaxAdapter(MinimaxBrowserAdapter):
+    """通过 WebSocket 与 Minimax 的本地 WS 服务交互（示例实现）。
+
+    依赖：websocket-client（可选）；优先通过环境变量 MINIMAX_WS_URL 指定 URL。
+    """
+
+    def __init__(self, url: str = 'ws://127.0.0.1:45124', timeout: float = 5.0):
+        if websocket is None:
+            raise RuntimeError('websocket-client not installed; install with pip install websocket-client')
+        self.url = url
+        self.timeout = timeout
+
+    def _send(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        import websocket as _ws
+        ws = _ws.create_connection(self.url, timeout=self.timeout)
+        try:
+            ws.send(json.dumps(payload))
+            line = ws.recv()
+            return json.loads(line)
+        finally:
+            try:
+                ws.close()
+            except Exception:
+                pass
+
+    def inspect(self) -> Dict[str, Any]:
+        return self._send({"op": "inspect"})
+
+    def query(self, kind: str, selector: str, maxChars: int = 20000) -> Dict[str, Any]:
+        return self._send({"op": "query", "kind": kind, "selector": selector, "max": maxChars})
+
+    def action(self, action_name: str, input: Dict[str, Any]) -> Dict[str, Any]:
+        return self._send({"op": "action", "name": action_name, "input": input})
+
+
+# 自动探测最优适配器工厂（增强版）
 def detect_best_interface(timeout: float = 0.5) -> Tuple[str, Optional[dict]]:
     """检测环境并返回 (mode, params) 之一：
-    - ('cli', {'path': path}) 当在 PATH 中发现 minimax-cli
+    - ('ws', {'url': url}) 当 MINIMAX_WS_URL 指定或默认 WS 可连通
+    - ('cli', {'path': path}) 当在 PATH 中发现 minimax-cli/minimax
     - ('tcp', {'host':host,'port':port}) 当本地 127.0.0.1:45123 可连通
     - ('file', {'request_dir': dir}) 兜底
 
-    优先级：env MINIMAX_REQUEST_DIR（强制） -> CLI -> TCP -> 本地目录 -> cwd/minimax_requests
+    优先级：MINIMAX_WS_URL -> MINIMAX_REQUEST_DIR -> CLI -> TCP -> 本地目录 -> cwd/minimax_requests
     """
-    # 0) 环境变量覆盖（测试/显式指定）
+    # 0) WS 环境变量优先
+    ws_url = os.environ.get('MINIMAX_WS_URL')
+    if ws_url:
+        return ('ws', {'url': ws_url})
+
+    # 0b) 环境变量覆盖（测试/显式指定文件目录）
     env_req = os.environ.get('MINIMAX_REQUEST_DIR')
     if env_req:
         os.makedirs(env_req, exist_ok=True)
@@ -219,8 +267,10 @@ def detect_best_interface(timeout: float = 0.5) -> Tuple[str, Optional[dict]]:
 
 
 def get_best_adapter() -> MinimaxBrowserAdapter:
-    """工厂：根据 detect_best_interface 返回已实例化适配器。"""
+    """工厂：根据 detect_best_interface 返回已实例化适配器（包含 ws 支持）。"""
     mode, params = detect_best_interface()
+    if mode == 'ws':
+        return WSMinimaxAdapter(url=params.get('url'))
     if mode == 'cli':
         return CLIProxyMinimaxAdapter(cli_path=params.get('path'))
     if mode == 'tcp':
