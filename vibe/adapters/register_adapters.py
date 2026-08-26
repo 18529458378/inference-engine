@@ -18,6 +18,11 @@ try:
 except Exception:
     pi_agent_tool = None
 
+try:
+    from .toknife_adapter import toknife_tool
+except Exception:
+    toknife_tool = None
+
 
 def get_default_tools() -> Dict[str, Callable]:
     tools = {}
@@ -27,6 +32,8 @@ def get_default_tools() -> Dict[str, Callable]:
         tools['deepseek_tool'] = deepseek_tool
     if pi_agent_tool:
         tools['pi_agent_tool'] = pi_agent_tool
+    if toknife_tool:
+        tools['toknife_tool'] = toknife_tool
     # lightweight mocks for other mcp endpoints useful for orchestrator flows
     def _mock(name):
         def f(payload):

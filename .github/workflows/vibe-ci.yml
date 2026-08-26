@@ -52,6 +52,8 @@ jobs:
           else
             pip install pytest
           fi
+          # 安装 claw-compactor 用于 adapters / hermes
+          pip install claw-compactor || true
 
       - name: Run tests
         run: |
@@ -79,6 +81,7 @@ jobs:
       - name: Install pytest
         run: |
           pip install pytest
+          pip install claw-compactor || true
 
       - name: Start local minimax stub (background)
         shell: bash
